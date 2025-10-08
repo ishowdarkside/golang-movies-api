@@ -19,7 +19,7 @@ func (app *application) logError(r *http.Request, err error) {
 func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, status int, message any) {
 
 	env := envelope{"error": message}
-	err := app.writeJSON(w, status, env)
+	err := app.writeJSON(w, status, env, nil)
 
 	if err != nil {
 		app.logError(r, err)
@@ -34,12 +34,12 @@ func (app *application) serverError(w http.ResponseWriter, r *http.Request, err 
 		method = r.Method
 		uri    = r.RequestURI
 	)
+	message := "the server encountered a problem and could not process your request"
 
 	if app.config.env == "development" {
-		message := envelope{"message": err.Error(), "method": method, "uri": uri}
+		message := envelope{"error": message, "development-only-info": envelope{"message": err.Error(), "method": method, "uri": uri}}
 		app.errorResponse(w, r, http.StatusInternalServerError, message)
 	} else {
-		message := "the server encountered a problem and could not process your request"
 		app.errorResponse(w, r, http.StatusInternalServerError, message)
 	}
 
@@ -63,5 +63,18 @@ func (app *application) methodNotAllowedResponse(w http.ResponseWriter, r *http.
 func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
 
 	app.errorResponse(w, r, http.StatusBadRequest, err.Error())
+
+}
+
+func (app *application) failedValidationResponse(w http.ResponseWriter, r *http.Request, errors map[string]string) {
+
+	app.errorResponse(w, r, http.StatusUnprocessableEntity, errors)
+
+}
+
+func (app *application) editConflictResponse(w http.ResponseWriter, r *http.Request) {
+
+	message := "unable to update the record due to an edit conflict, please try again"
+	app.errorResponse(w, r, http.StatusConflict, message)
 
 }
