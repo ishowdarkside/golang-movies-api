@@ -3,9 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/ishowdarkside/go-movies-app/internal/validator"
@@ -19,7 +17,13 @@ type MovieModel struct {
 func (m MovieModel) Insert(movie *Movie) error {
 
 	query := `INSERT INTO movies (title, year, runtime, genres) VALUES ($1, $2, $3, $4) RETURNING id, created_at, version`
-	res := m.DB.QueryRow(query, movie.Title, movie.Year, movie.Runtime, pq.StringArray(movie.Genres))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	defer cancel()
+
+	res := m.DB.QueryRowContext(ctx, query, movie.Title, movie.Year, movie.Runtime, pq.StringArray(movie.Genres))
+
 	return res.Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
 }
 
@@ -30,13 +34,13 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 	}
 	moviePlaceholder := Movie{}
 
-	query := `SELECT pg_sleep(8), id, title, genres, runtime, year, created_at, version  FROM movies WHERE id = $1`
+	query := `SELECT  id, title, genres, runtime, year, created_at, version  FROM movies WHERE id = $1`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, query, id).Scan(&[]byte{}, &moviePlaceholder.ID, &moviePlaceholder.Title, pq.Array(&moviePlaceholder.Genres), &moviePlaceholder.Runtime, &moviePlaceholder.Year, &moviePlaceholder.CreatedAt, &moviePlaceholder.Version)
+	err := m.DB.QueryRowContext(ctx, query, id).Scan(&moviePlaceholder.ID, &moviePlaceholder.Title, pq.Array(&moviePlaceholder.Genres), &moviePlaceholder.Runtime, &moviePlaceholder.Year, &moviePlaceholder.CreatedAt, &moviePlaceholder.Version)
 
 	if err != nil {
 
@@ -59,10 +63,11 @@ func (m MovieModel) Update(movie *Movie) error {
 	WHERE id = $5 AND version = $6
 	RETURNING version`
 
-	test, _ := json.Marshal(movie)
-	fmt.Println(string(test))
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
-	err := m.DB.QueryRow(query, movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres), movie.ID, movie.Version).Scan(&movie.Version)
+	defer cancel()
+
+	err := m.DB.QueryRowContext(ctx, query, movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres), movie.ID, movie.Version).Scan(&movie.Version)
 
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		return ErrEditConflict
@@ -77,7 +82,12 @@ func (m MovieModel) Delete(id int64) error {
 	}
 
 	query := `DELETE FROM movies where id = $1`
-	res, err := m.DB.Exec(query, id)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	defer cancel()
+
+	res, err := m.DB.ExecContext(ctx, query, id)
 
 	if err != nil {
 		return err
