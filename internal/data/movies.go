@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/ishowdarkside/go-movies-app/internal/validator"
@@ -103,6 +104,50 @@ func (m MovieModel) Delete(id int64) error {
 	}
 
 	return nil
+
+}
+
+func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, Metadata, error) {
+
+	ctx, close := context.WithTimeout(context.Background(), time.Second*3)
+	query := fmt.Sprintf(`SELECT count(*) OVER(), id, created_at, title, genres, year, runtime, version 
+	FROM movies	WHERE
+	(to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '') AND
+	(genres @> $2 OR $2 = '{}')
+	ORDER BY %s %s, id ASC
+	LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortDirection())
+
+	defer close()
+
+	rows, err := m.DB.QueryContext(ctx, query, title, pq.Array(genres), filters.limit(), filters.offset())
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	totalRecord := 0
+	movies := []*Movie{}
+
+	for rows.Next() {
+
+		currMovie := Movie{}
+
+		err := rows.Scan(&totalRecord, &currMovie.ID, &currMovie.CreatedAt, &currMovie.Title, pq.Array(&currMovie.Genres), &currMovie.Year, &currMovie.Runtime, &currMovie.Version)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+
+		movies = append(movies, &currMovie)
+	}
+
+	errDuringIteration := rows.Err()
+	if errDuringIteration != nil {
+		return nil, Metadata{}, errDuringIteration
+	}
+
+	metadata := calculateMetadata(totalRecord, filters.Page, filters.PageSize)
+	return movies, metadata, nil
 
 }
 
