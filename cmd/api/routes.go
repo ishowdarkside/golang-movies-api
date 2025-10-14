@@ -22,6 +22,6 @@ func (app *application) routes() http.Handler {
 	router.NotFound = http.HandlerFunc(app.notFoundError)
 	router.MethodNotAllowed = http.HandlerFunc(app.methodNotAllowedResponse)
 
-	return app.recoverPanic(router)
+	return app.recoverPanic(app.rateMilit(router))
 
 }
