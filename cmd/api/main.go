@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ishowdarkside/go-movies-app/internal/data"
@@ -47,9 +49,12 @@ type application struct {
 	logger *slog.Logger
 	models data.Models
 	mailer *mailer.Mailer
+	wg     sync.WaitGroup
 }
 
 func main() {
+
+	fmt.Println("all goroutines finisd")
 
 	godotenv.Load()
 	var cfg config
