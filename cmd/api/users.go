@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/ishowdarkside/go-movies-app/internal/data"
 	"github.com/ishowdarkside/go-movies-app/internal/validator"
@@ -57,9 +58,20 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	token, err := app.models.Tokens.New(user.ID, time.Hour*24*3, data.ScopeActivation)
+	if err != nil {
+
+		app.serverError(w, r, err)
+		return
+	}
+
 	app.background(func() {
 
-		err = app.mailer.Send(user.Email, "user_welcome.tmpl", user)
+		data := map[string]any{
+			"userID":          user.ID,
+			"activationToken": token.PlainText,
+		}
+		err = app.mailer.Send(user.Email, "user_welcome.tmpl", data)
 		if err != nil {
 			app.logger.Error(err.Error())
 		}
