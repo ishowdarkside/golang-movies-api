@@ -21,6 +21,7 @@ func (app *application) routes() http.Handler {
 	// User endpoints
 	router.HandlerFunc(http.MethodPost, "/v1/users", app.registerUserHandler)
 	router.HandlerFunc(http.MethodPut, "/v1/users/activated", app.activateUserHandler)
+	router.HandlerFunc(http.MethodPost, "/v1/tokens/authentication", app.createAuthenticationTokenHandler)
 
 	router.NotFound = http.HandlerFunc(app.notFoundError)
 	router.MethodNotAllowed = http.HandlerFunc(app.methodNotAllowedResponse)
